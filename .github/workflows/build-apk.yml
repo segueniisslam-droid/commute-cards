@@ -1,7 +1,10 @@
 name: Build APK
 on:
   push:
+    branches: [main]
   workflow_dispatch:
+permissions:
+  contents: write
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -16,7 +19,23 @@ jobs:
           gradle-version: '8.7'
       - name: Build debug APK
         run: gradle assembleDebug --no-daemon
+      - name: Rename APK
+        run: cp app/build/outputs/apk/debug/app-debug.apk CommuteCards.apk
       - uses: actions/upload-artifact@v4
         with:
           name: CommuteCards-apk
-          path: app/build/outputs/apk/debug/app-debug.apk
+          path: CommuteCards.apk
+      - name: Publish as a release download
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v1.${{ github.run_number }}
+          name: Commute Cards v1.${{ github.run_number }}
+          body: Download CommuteCards.apk on your phone and tap it to install.
+          files: CommuteCards.apk
+      - name: Save APK to the apk branch
+        run: |
+          mkdir /tmp/out && cp CommuteCards.apk /tmp/out/
+          cd /tmp/out && git init -q -b apk
+          git config user.name "github-actions" && git config user.email "actions@github.com"
+          git add CommuteCards.apk && git commit -q -m "APK build ${{ github.run_number }}"
+          git push -f "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git" apk
